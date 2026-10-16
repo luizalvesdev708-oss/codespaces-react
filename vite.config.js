@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       host: '0.0.0.0',
+      allowedHosts: ['codespaces-react-rm12.onrender.com'],
       proxy: {
         '/api': {
           target: env.VITE_API_PROXY_TARGET || 'http://localhost:4000',
