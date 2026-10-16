@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { DATA } from '../data/mockData';
 import ReportBuilder from './ReportBuilder';
 import { buildReportCsv } from '../utils/reportExport';
+
+afterEach(() => vi.unstubAllGlobals());
 
 test('monta prévia cadastral com filtros e sem CPF completo', () => {
   render(<ReportBuilder data={DATA} />);
@@ -40,6 +42,47 @@ test('gera relatório da visão geral com painéis e exportação habilitada', (
   expect(screen.getByRole('button', { name: '↓ CSV' }).hasAttribute('disabled')).toBe(false);
   expect(screen.getByRole('button', { name: '↓ Excel' }).hasAttribute('disabled')).toBe(false);
   expect(screen.getByRole('button', { name: '↓ PDF' }).hasAttribute('disabled')).toBe(false);
+});
+
+test('carrega todas as páginas para exportar mais registros que o limite do dashboard', async () => {
+  const record = { ...DATA.records[0], cadastro: '15/03/2026' };
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), window.location.origin);
+    const page = Number(url.searchParams.get('page'));
+    const count = page === 1 ? 1_000 : 1;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        records: Array.from({ length: count }, () => record),
+        total: 1_001,
+        page,
+        pageSize: 1_000,
+      }),
+    } as Response;
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  const filteredData = {
+    ...DATA,
+    records: DATA.records.slice(0, 500),
+    censo: { ...DATA.censo, registros: 1_001 },
+    filters: {
+      from: null,
+      to: null,
+      regime: null,
+      source: null,
+      category: 'ALL',
+      competence: null,
+    },
+  };
+
+  render(<ReportBuilder data={filteredData} />);
+
+  expect(await screen.findByText(/Exibindo as primeiras 500 linhas/)).toBeDefined();
+  expect(screen.getByText('1.001 linha(s)')).toBeDefined();
+  expect(screen.getByRole('button', { name: '↓ CSV' }).hasAttribute('disabled')).toBe(false);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(501);
 });
 
 test('CSV protege conteúdo interpretável como fórmula e preserva valores numéricos', () => {

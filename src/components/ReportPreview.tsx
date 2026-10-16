@@ -14,6 +14,7 @@ interface ReportPreviewProps {
 }
 
 const viewLabels: Record<ReportView, string> = { cards: 'Cartões KPI', table: 'Tabela', bar: 'Barras', line: 'Linha' };
+const PREVIEW_ROW_LIMIT = 500;
 const formatCell = (key: string, value: string | number) => {
   if (typeof value !== 'number') return value;
   return /valor|proventos|descontos|líquido|líquido|base|patronal/i.test(key) ? formatMoney(value) : formatCount(value);
@@ -50,6 +51,7 @@ export default function ReportPreview({
 }: ReportPreviewProps) {
   if (loading) return <section className="report-preview panel" aria-live="polite"><div className="report-loading"><span className="report-spinner" aria-hidden="true" />Preparando pré-visualização…</div></section>;
   const columns = rows.length ? Object.keys(rows[0]) : [];
+  const visibleRows = rows.slice(0, PREVIEW_ROW_LIMIT);
 
   return <section className="report-preview panel report-print-area" aria-labelledby="reportPreviewTitle" aria-live="polite">
     <header className="report-preview__heading">
@@ -84,7 +86,7 @@ export default function ReportPreview({
           </div>
         </section>
       )}
-      {selectedViews.includes('table') && <section className="report-preview__section"><h3>Dados do relatório <span>{formatCount(rows.length)} linha(s)</span></h3><div className="report-table-wrap"><table className="report-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map((column) => <td key={column}>{formatCell(column, row[column])}</td>)}</tr>)}</tbody></table></div></section>}
+      {selectedViews.includes('table') && <section className="report-preview__section"><h3>Dados do relatório <span>{formatCount(rows.length)} linha(s)</span></h3>{rows.length > PREVIEW_ROW_LIMIT && <p className="report-data-note">Exibindo as primeiras {formatCount(PREVIEW_ROW_LIMIT)} linhas para manter a navegação rápida; a exportação inclui todas.</p>}<div className="report-table-wrap"><table className="report-table"><thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead><tbody>{visibleRows.map((row, index) => <tr key={index}>{columns.map((column) => <td key={column}>{formatCell(column, row[column])}</td>)}</tr>)}</tbody></table></div></section>}
     </>}
     <footer className="report-preview__footer">Esta prévia minimiza dados pessoais e mascara CPFs. Exportação completa descriptografada é restrita a ADMIN e requer confirmação.</footer>
   </section>;

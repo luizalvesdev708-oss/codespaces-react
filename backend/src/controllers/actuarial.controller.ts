@@ -1,7 +1,7 @@
 import type { RequestHandler } from 'express';
 import { z } from 'zod';
 import { Decimal } from 'decimal.js';
-import { PersonnelType } from '@prisma/client';
+import { CensusStatus, PersonnelType } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../config/db.js';
 import { calculateIndicators, calculatePayroll } from '../services/actuarial.js';
@@ -34,6 +34,11 @@ const dashboardFilterSchema = z.object({
   source: z.string().trim().min(1).max(120).optional(),
 }).refine((filter) => !filter.from || !filter.to || filter.from <= filter.to, {
   message: 'The period start must not be after its end',
+});
+
+const reportRecordsQuerySchema = dashboardFilterSchema.extend({
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
+  pageSize: z.coerce.number().int().min(1).max(1_000).default(1_000),
 });
 
 function periodBounds(from?: string, to?: string) {
@@ -344,6 +349,57 @@ export const dashboardData: RequestHandler = async (request, response, next) => 
         sources: [...new Set([...activeSources, ...retiredSources, ...pensionerSources].flatMap((item) => item.fonteDados ?? []))].sort(),
       },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const reportCensusRecords: RequestHandler = async (request, response, next) => {
+  try {
+    const query = reportRecordsQuerySchema.parse(request.query);
+    const where = censusWhere(query.from, query.to, query.category, query.regime, query.source);
+    const [total, rows] = await Promise.all([
+      prisma.censoRegistro.count({ where }),
+      prisma.censoRegistro.findMany({
+        where,
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize,
+        orderBy: [{ dataCadastro: 'desc' }, { id: 'asc' }],
+        include: {
+          servidorAtivo: { select: { nomeCiphertext: true, cpfCiphertext: true, matriculaCiphertext: true, cargo: true, regime: true, fonteDados: true } },
+          aposentado: { select: { nomeCiphertext: true, cpfCiphertext: true, matriculaCiphertext: true, beneficio: true, regime: true, fonteDados: true } },
+          pensionista: { select: { nomeCiphertext: true, cpfCiphertext: true, matriculaCiphertext: true, beneficio: true, regime: true, fonteDados: true } },
+        },
+      }),
+    ]);
+    const records = (rows as DashboardCensusRecord[]).map((record) => {
+      const person = record.servidorAtivo ?? record.aposentado ?? record.pensionista;
+      const name = person ? decryptPii(person.nomeCiphertext) : '';
+      const cpf = person ? decryptPii(person.cpfCiphertext) : '';
+      const matricula = person ? decryptPii(person.matriculaCiphertext) : '';
+      const statusLabel: Record<CensusStatus, string> = {
+        COMPLETED: 'Concluído',
+        PENDING: 'Cadastro sem conclusão',
+        IN_PROGRESS: 'Em análise',
+        REJECTED: 'Recusado',
+      };
+      return {
+        cpf: maskCpf(cpf),
+        nome: name ? maskName(name) : 'Segurado sem vínculo',
+        matricula: matricula ? `***${matricula.slice(-3)}` : '***',
+        tipo: record.tipo,
+        regime: person?.regime ?? '',
+        fonteDados: person?.fonteDados ?? '',
+        entidade: 'Não informada',
+        cargo: record.servidorAtivo?.cargo ?? record.aposentado?.beneficio ?? record.pensionista?.beneficio ?? 'Não informado',
+        cadastro: formatDate(record.dataCadastro),
+        conclusao: formatDate(record.dataConclusao),
+        ultimoAcesso: formatDate(record.ultimoAcesso),
+        status: statusLabel[record.status],
+      };
+    });
+    response.setHeader('Cache-Control', 'no-store, private');
+    response.json({ records, total, page: query.page, pageSize: query.pageSize });
   } catch (error) {
     next(error);
   }

@@ -4,6 +4,7 @@ import ReportExportButtons from '../components/ReportExportButtons';
 import DecryptedAnalyticsExport from '../components/DecryptedAnalyticsExport';
 import ReportFilterBar from '../components/ReportFilterBar';
 import ReportPreview from '../components/ReportPreview';
+import { useCompleteReportRecords } from '../hooks/useCompleteReportRecords';
 import { useReportBuilder } from '../hooks/useReportBuilder';
 import { formatReportPeriod, REPORT_METRICS, REPORT_VIEWS } from '../services/reportService';
 
@@ -14,7 +15,16 @@ interface ReportBuilderProps {
 }
 
 export default function ReportBuilder({ data, isAdmin = false, dashboardFilters }: ReportBuilderProps) {
-  const report = useReportBuilder(data);
+  const completeRecords = useCompleteReportRecords(data);
+  const reportData = { ...data, records: completeRecords.records };
+  const report = useReportBuilder(reportData);
+  const recordsPending = Boolean(
+    data.filters
+    && !completeRecords.error
+    && data.censo.registros > completeRecords.records.length,
+  );
+  const recordsLoading = completeRecords.loading || recordsPending;
+  const exportDisabled = report.loading || recordsLoading || Boolean(completeRecords.error);
   const categoryLabels: Record<'ACTIVE' | 'RETIRED' | 'PENSIONER', string> = {
     ACTIVE: 'Ativos',
     RETIRED: 'Aposentados',
@@ -117,8 +127,15 @@ export default function ReportBuilder({ data, isAdmin = false, dashboardFilters 
           <div className="report-export-card">
             <h3>Exportar / compartilhar</h3>
             <p>Os arquivos são gerados localmente no navegador.</p>
-            <ReportExportButtons title={report.currentTitle} rows={report.rows} pdfDetails={pdfDetails} disabled={report.loading} />
+            <ReportExportButtons title={report.currentTitle} rows={report.rows} pdfDetails={pdfDetails} disabled={exportDisabled} />
           </div>
+          {recordsLoading && <p className="report-validation" role="status">Carregando todos os registros para garantir uma exportação completa…</p>}
+          {completeRecords.error && (
+            <div className="report-validation" role="alert">
+              <p>{completeRecords.error}</p>
+              <button className="button" type="button" onClick={completeRecords.retry}>Tentar novamente</button>
+            </div>
+          )}
           {isAdmin && <DecryptedAnalyticsExport filters={report.filters} dashboardFilters={dashboardFilters} />}
         </section>
         <div className="report-result">
@@ -136,14 +153,17 @@ export default function ReportBuilder({ data, isAdmin = false, dashboardFilters 
             metrics={report.metrics}
             rows={report.hasReportData ? report.rows : []}
             selectedViews={report.selectedViews}
-            loading={report.loading}
+            loading={report.loading || recordsLoading}
             chartItems={report.chartItems}
             chartGroups={report.chartGroups}
           />
           <p className="report-data-note">
-            {report.kind === 'visao-geral'
-              ? 'Relatório consolidado com indicadores, situação cadastral, distribuição por cargo, cadastros por data e dados agregados da folha. Os dados financeiros não possuem vínculo individual com os registros cadastrais.'
-              : 'Prévia limitada aos dados fornecidos no painel. Informações da folha são agregadas e não possuem vínculo individual com os registros cadastrais.'}
+            {completeRecords.error
+              || `${report.kind === 'visao-geral'
+                ? 'Relatório consolidado com indicadores, situação cadastral, distribuição por cargo, cadastros por data e dados agregados da folha. Os dados financeiros não possuem vínculo individual com os registros cadastrais.'
+                : 'Informações da folha são agregadas e não possuem vínculo individual com os registros cadastrais.'}${completeRecords.records.length > 500
+                ? ` A prévia exibe as primeiras 500 de ${completeRecords.records.length.toLocaleString('pt-BR')} linhas; as exportações incluem todas.`
+                : ''}`}
           </p>
         </div>
       </div>
