@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#e9f7f8">
+  <meta name="description" content="Painel demonstrativo de gestão do censo previdenciário e prova de vida.">
+  <title>Censo Previdenciário — Painel de Gestão</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page:#edf7f8; --surface:rgba(255,255,255,.91); --surface-2:#f5fbfc;
+      --ink:#153b4a; --muted:#526d79; --line:#ccdee2; --teal:#087e8b;
+      --cyan:#12b8bd; --blue:#256b94; --green:#16794d; --green-bg:#e4f5eb;
+      --amber:#8a5700; --amber-bg:#fff2d8; --red:#a52929; --red-bg:#fde9e8;
+      --shadow:0 10px 28px rgba(25,81,96,.08); --radius:18px;
+    }
+    [data-theme="dark"] {
+      color-scheme:dark; --page:#10232c; --surface:rgba(25,48,59,.96); --surface-2:#1c3743;
+      --ink:#e7f4f5; --muted:#b4c9ce; --line:#3a5964; --teal:#54d3d1;
+      --cyan:#33e0d5; --blue:#75b8e0; --green:#71d7a1; --green-bg:#193f35;
+      --amber:#f1c16d; --amber-bg:#49391e; --red:#ff9994; --red-bg:#4c282b;
+      --shadow:0 10px 28px rgba(0,0,0,.2);
+    }
+    * { box-sizing:border-box }
+    body { margin:0; min-width:320px; background:radial-gradient(ellipse at 62% -12%,#bdecef 0,transparent 44%),var(--page); color:var(--ink); font:16px/1.45 Inter,"Segoe UI",Arial,sans-serif }
+    button,select { font:inherit }
+    button:focus-visible,select:focus-visible,a:focus-visible { outline:3px solid #e59d20; outline-offset:3px }
+    .app { max-width:1720px; margin:auto; min-height:100vh; padding:20px }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:18px }
+    .brand { display:flex; align-items:center; gap:12px }
+    .brand-mark { width:46px; height:46px; display:grid; place-items:center; border-radius:15px; background:linear-gradient(145deg,#087e8b,#1abeb9); color:white; font-size:24px; font-weight:800; box-shadow:0 7px 16px #087e8b30 }
+    .brand h1 { margin:0; font-size:clamp(20px,2vw,26px); letter-spacing:-.035em; line-height:1.2 }
+    .brand p,.top-meta { margin:3px 0 0; color:var(--muted); font-size:14px }
+    .top-actions { display:flex; align-items:center; gap:10px }
+    .pill,.icon-button,.profile-button { border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:12px; min-height:42px; padding:8px 13px; font-weight:650; cursor:pointer }
+    .pill { display:flex; align-items:center; gap:8px; font-size:14px }
+    .live-dot { width:9px; height:9px; border-radius:50%; background:#20a66a; box-shadow:0 0 0 4px #20a66a22 }
+    .icon-button { width:44px; display:grid; place-items:center; padding:0; font-size:20px }
+    .layout { display:grid; grid-template-columns:276px minmax(0,1fr); gap:18px; align-items:start }
+    .sidebar { position:sticky; top:16px; overflow:hidden; border:1px solid #294b58; border-radius:20px; background:linear-gradient(160deg,#173f4d,#112f3b 72%,#102b36); color:#f1fafb; box-shadow:0 12px 30px rgba(13,47,60,.18) }
+    .sidebar-nav { padding:20px 14px 15px }
+    .sidebar-eyebrow { margin:0 9px 11px; color:#a9c5cb; font-size:11px; font-weight:750; letter-spacing:.1em; text-transform:uppercase }
+    .nav-list { display:grid; gap:5px; margin:0; padding:0; list-style:none }
+    .nav-link { min-height:47px; display:flex; align-items:center; gap:12px; padding:0 11px; border-left:3px solid transparent; border-radius:11px; color:#d0e0e3; font-size:15px; font-weight:620; text-decoration:none; transition:background .16s ease,color .16s ease }
+    .nav-link:hover { background:#ffffff12; color:#fff }
+    .nav-link[aria-current="page"] { border-left-color:#45d5c7; background:#ffffff17; color:#fff }
+    .nav-icon { width:21px; height:21px; flex:0 0 21px; display:block; color:#a9d5d4 }
+    .nav-link[aria-current="page"] .nav-icon { color:#54e0d0 }
+    .sidebar-divider { height:1px; margin:0 19px; background:linear-gradient(90deg,transparent,#ffffff3b 15%,#ffffff3b 85%,transparent) }
+    .sidebar-filters { padding:16px 19px 0 }
+    .filters-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 14px }
+    .filters-head h2 { margin:0; color:#f1fafb; font-size:16px; letter-spacing:-.01em }
+    .clear { border:0; background:none; color:#75e0d4; padding:6px 0; font-size:13px; font-weight:700; cursor:pointer }
+    .field { display:grid; gap:6px; margin:0 0 12px }
+    .field label { color:#d5e5e8; font-size:13px; font-weight:680 }
+    .field select { appearance:auto; width:100%; min-height:43px; border:1px solid #78939a; border-radius:10px; background:#f6fbfc; color:#173b48; padding:8px 10px; font-size:14px; font-weight:600; color-scheme:light }
+    .field select:hover { border-color:#42cabc }
+    [data-theme="dark"] .field select { border-color:#54737c; background:#203e49; color:#effbfc; color-scheme:dark }
+    .filter-foot { margin:4px -19px 0; padding:13px 19px 17px; border-top:1px solid #ffffff25; color:#b8cdd1; font-size:13px }
+    .filter-foot strong { color:#fff }
+    .content { display:grid; gap:16px; min-width:0 }
+    .welcome { display:flex; align-items:end; justify-content:space-between; gap:14px }
+    .welcome h2 { margin:0; font-size:clamp(20px,2vw,26px); letter-spacing:-.035em }
+    .welcome p { margin:4px 0 0; color:var(--muted); font-size:14px }
+    .profile-switch { display:flex; gap:5px; border:1px solid var(--line); background:var(--surface); border-radius:13px; padding:4px }
+    .profile-button { min-height:36px; border:0; background:transparent; padding:6px 11px; font-size:13px }
+    .profile-button[aria-pressed="true"] { background:var(--surface-2); color:var(--teal); box-shadow:inset 0 0 0 1px var(--line) }
+    .kpis { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px }
+    .kpi { min-height:132px; padding:17px; position:relative; overflow:hidden }
+    .kpi:after { content:""; position:absolute; width:90px; height:90px; border-radius:50%; background:var(--surface-2); right:-28px; top:-36px; opacity:.8 }
+    .kpi-label { position:relative; z-index:1; color:var(--muted); font-size:14px; font-weight:650 }
+    .kpi-value { display:block; margin-top:10px; font-size:clamp(24px,2.4vw,34px); line-height:1.08; font-weight:780; letter-spacing:-.04em; font-variant-numeric:tabular-nums }
+    .kpi-foot { display:flex; gap:6px; align-items:center; margin-top:9px; color:var(--muted); font-size:13px }
+    .delta { color:var(--green); font-weight:750 }.delta.warn { color:var(--amber) }.delta.bad { color:var(--red) }
+    .hero { overflow:hidden; background:linear-gradient(120deg,#087e8b,#0aa6ab 60%,#39c8c4); color:#fff; border:0; position:relative }
+    .hero .card-heading { border-color:#ffffff36 }
+    .hero .card-heading h3,.hero .card-heading p { color:#fff }
+    .hero .card-heading p { opacity:.83 }
+    .hero .meta { color:#e1ffff }
+    .hero-chart { height:242px; padding:7px 15px 15px }
+    .hero-chart svg,.chart svg { display:block; width:100%; height:100%; overflow:visible }
+    .wave-grid { stroke:#ffffff45; stroke-dasharray:3 5; stroke-width:1 }
+    .wave-line { fill:none; stroke:#e9ffff; stroke-width:3; stroke-linejoin:round; stroke-linecap:round }
+    .wave-area { fill:url(#waveFill) }
+    .wave-point { fill:#fff; stroke:#087e8b; stroke-width:2.5 }
+    .wave-text { fill:#fff; font:12px "Segoe UI",Arial,sans-serif }
+    .wave-value { fill:#fff; font:700 12px "Segoe UI",Arial,sans-serif }
+    .section-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:2px 2px 0 }
+    .section-heading p { margin:0; color:var(--muted); font-size:13px }
+    .grid-two { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px }
+    .grid-three { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px }
+    .card { min-width:0; overflow:hidden }
+    .card-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:17px 18px 12px; border-bottom:1px solid var(--line) }
+    .card-heading h3 { margin:0; font-size:16px; letter-spacing:-.02em }
+    .card-heading p { margin:3px 0 0; color:var(--muted); font-size:13px }
+    .card-icon { flex:0 0 auto; color:var(--teal); font-size:18px }
+    .chart { height:250px; padding:10px 14px 14px }
+    .chart.short { height:215px }
+    .chart.tall { height:290px }
+    .meta { margin:0; padding:0 17px 14px; color:var(--muted); font-size:12px }
+    .funnel { display:grid; gap:10px; padding:16px 18px }
+    .funnel-row { display:grid; grid-template-columns:150px minmax(40px,1fr) 100px; gap:10px; align-items:center; font-size:14px }
+    .funnel-name { font-weight:650 }
+    .funnel-track,.progress-track { overflow:hidden; height:12px; border-radius:99px; background:var(--surface-2) }
+    .funnel-fill { height:100%; border-radius:inherit; background:linear-gradient(90deg,#087e8b,#28c7bd) }
+    .funnel-count { text-align:right; font-weight:750; font-variant-numeric:tabular-nums }
+    .loss { padding:0 18px 13px; color:var(--muted); font-size:12px }
+    .status-legend { display:grid; gap:11px; align-content:center }
+    .legend-row { display:flex; justify-content:space-between; gap:12px; font-size:14px }
+    .legend-name { display:flex; align-items:center; gap:8px }
+    .swatch { width:10px; height:10px; border-radius:3px; flex:none }
+    .layout-donut { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:8px; height:100%; padding:7px 5px }
+    .donut-wrap { position:relative; width:min(190px,100%); aspect-ratio:1; margin:auto }
+    .donut-wrap svg { width:100%; height:100%; transform:rotate(-90deg) }
+    .donut-hole { position:absolute; inset:23%; display:grid; align-content:center; justify-items:center; text-align:center }
+    .donut-hole strong { font-size:23px; line-height:1.1 }
+    .donut-hole span { color:var(--muted); font-size:12px }
+    .legend-value { font-variant-numeric:tabular-nums; font-weight:750 }
+    .regional-list { display:grid; gap:13px; padding:17px 18px }
+    .regional-row { display:grid; grid-template-columns:minmax(95px,135px) minmax(60px,1fr) 54px; align-items:center; gap:10px; font-size:13px }
+    .regional-row strong { text-align:right; font-variant-numeric:tabular-nums }
+    .progress-track { height:11px }
+    .progress-fill { height:100%; background:linear-gradient(90deg,#087e8b,#1bbcb5); border-radius:inherit }
+    .map-wrap { padding:6px 12px 0; height:250px }
+    .map-wrap svg { width:100%; height:100% }
+    .map-region { stroke:var(--surface); stroke-width:3; cursor:pointer }
+    .map-label { fill:#153b4a; font:700 11px "Segoe UI",Arial,sans-serif; pointer-events:none }
+    [data-theme="dark"] .map-label { fill:#10232c }
+    .map-legend { display:flex; align-items:center; justify-content:center; gap:8px; padding:4px 14px 12px; color:var(--muted); font-size:12px }
+    .gradient-key { width:100px; height:9px; border-radius:10px; background:linear-gradient(90deg,#d9f2eb,#0a7788) }
+    .stats { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:15px 17px }
+    .stat { min-height:90px; border:1px solid var(--line); background:var(--surface-2); border-radius:13px; padding:13px }
+    .stat-label { color:var(--muted); font-size:13px }
+    .stat-value { display:block; margin-top:7px; font-size:23px; font-weight:780; letter-spacing:-.03em }
+    .stat.alert .stat-value { color:var(--red) }.stat.good .stat-value { color:var(--green) }.stat.attention .stat-value { color:var(--amber) }
+    .queue-list { display:grid; gap:10px; padding:16px 18px }
+    .queue-row { display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); padding-bottom:9px; font-size:14px }
+    .queue-row:last-child { border-bottom:0; padding:0 }
+    .queue-row strong { font-variant-numeric:tabular-nums }
+    .badge { display:inline-flex; align-items:center; border-radius:999px; padding:4px 9px; font-size:12px; font-weight:750; white-space:nowrap }
+    .badge.ok { color:var(--green); background:var(--green-bg) }.badge.warn { color:var(--amber); background:var(--amber-bg) }.badge.danger { color:var(--red); background:var(--red-bg) }
+    .audit-panel { display:none }
+    body[data-profile="auditoria"] .audit-panel { display:block }
+    body[data-profile="operador"] .operator-focus { border-color:var(--teal); box-shadow:0 0 0 2px color-mix(in srgb,var(--teal) 17%,transparent),var(--shadow) }
+    .audit-table { width:100%; border-collapse:collapse; text-align:left; font-size:13px }
+    .audit-table th,.audit-table td { padding:10px 12px; border-bottom:1px solid var(--line) }
+    .audit-table th { color:var(--muted); font-size:12px }
+    .audit-wrap { padding:4px 16px 12px; overflow-x:auto }
+    .empty { padding:24px; text-align:center; color:var(--muted) }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 }
+    @media(max-width:1190px) { .layout{grid-template-columns:248px minmax(0,1fr)}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.grid-three{grid-template-columns:repeat(2,minmax(0,1fr))} }
+    @media(max-width:820px) { .app{padding:14px}.layout{grid-template-columns:1fr}.sidebar{position:static}.sidebar-nav{padding:15px 13px 12px}.sidebar-eyebrow{margin-bottom:8px}.nav-list{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}.nav-link{min-height:54px;flex-direction:column;justify-content:center;gap:4px;padding:5px 3px;border-left:0;border-bottom:2px solid transparent;border-radius:9px;font-size:12px;text-align:center}.nav-link[aria-current="page"]{border-left:0;border-bottom-color:#45d5c7}.nav-icon{width:19px;height:19px;flex-basis:19px}.sidebar-divider{margin:0 16px}.sidebar-filters{padding:13px 16px 0}.filter-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}.filters-head{margin-bottom:10px}.filter-foot{margin-top:3px}.topbar{align-items:flex-start}.grid-two,.grid-three{grid-template-columns:1fr 1fr}.welcome{align-items:flex-start;flex-direction:column}.hero-chart{height:220px} }
+    @media(max-width:560px) { .app{padding:11px}.topbar{flex-wrap:wrap}.brand-mark{width:40px;height:40px}.top-meta{display:none}.pill{font-size:12px;min-height:38px;padding:7px 9px}.nav-list{grid-template-columns:repeat(3,minmax(0,1fr))}.nav-link{font-size:11px}.filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.kpi{min-height:116px;padding:13px}.kpi-value{font-size:25px}.grid-two,.grid-three{grid-template-columns:1fr}.profile-switch{width:100%;justify-content:space-between}.profile-button{flex:1;padding:6px 4px;font-size:12px}.funnel-row{grid-template-columns:116px minmax(30px,1fr) 74px;gap:7px;font-size:12px}.layout-donut{grid-template-columns:1fr 1fr}.donut-wrap{max-width:155px}.chart{height:235px}.hero-chart{height:200px}.regional-row{grid-template-columns:100px minmax(50px,1fr) 45px;font-size:12px} }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important} }
+  </style>
+</head>
+<body data-profile="gestor">
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark" aria-hidden="true">↗</div><div><h1>Censo Previdenciário</h1><p>Painel de gestão · ciclo 2026</p></div></div>
+      <div class="top-actions"><span class="pill"><i class="live-dot" aria-hidden="true"></i> Ambiente demonstrativo</span><span class="top-meta">Atualizado <time id="topUpdated"></time></span><button class="icon-button" id="themeToggle" type="button" aria-label="Ativar tema escuro" title="Alternar tema">☾</button></div>
+    </header>
+    <div class="layout">
+      <aside class="sidebar" aria-label="Navegação e filtros do painel">
+        <nav class="sidebar-nav" aria-label="Navegação principal">
+          <p class="sidebar-eyebrow">Menu principal</p>
+          <ul class="nav-list">
+            <li><a class="nav-link" href="#overview" aria-current="page"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="11" width="7" height="10" rx="1.5"/><rect x="3" y="14" width="8" height="7" rx="1.5"/></svg><span>Visão geral</span></a></li>
+            <li><a class="nav-link" href="#census"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></svg><span>Base do censo</span></a></li>
+            <li><a class="nav-link" href="#members"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.8 20v-1.4A5.6 5.6 0 0 1 8.4 13h1.2a5.6 5.6 0 0 1 5.6 5.6V20M16 4.8a3.5 3.5 0 0 1 0 6.6M17 13.3a5.7 5.7 0 0 1 4.2 5.3V20"/></svg><span>Segurados</span></a></li>
+            <li><a class="nav-link" href="#benefits"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h8l4 4v14H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M14 3v5h5M8 12h8M8 16h8"/></svg><span>Benefícios</span></a></li>
+            <li><a class="nav-link" href="#contributions"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18M7 14l4-4 3 3 6-7"/><path d="M16 6h4v4"/></svg><span>Contribuições</span></a></li>
+          </ul>
+        </nav>
+        <div class="sidebar-divider" aria-hidden="true"></div>
+        <section class="sidebar-filters" aria-label="Filtros e parâmetros">
+          <div class="filters-head"><h2>Filtros e parâmetros</h2><button class="clear" id="clearFilters" type="button">Limpar</button></div>
+          <div class="filter-grid">
+            <div class="field"><label for="period">Período</label><select id="period"><option value="2026-03_2026-08" selected>Março/2026 — Agosto/2026</option><option value="all">Janeiro/2024 — Dezembro/2026</option><option value="2026">Janeiro/2026 — Dezembro/2026</option><option value="2025-07_2026-06">Julho/2025 — Junho/2026</option></select></div>
+            <div class="field"><label for="regime">Regime</label><select id="regime"><option selected>IPSS</option></select></div>
+            <div class="field"><label for="source">Fonte</label><select id="source"><option selected>Dados fornecidos</option></select></div>
+            <div class="field"><label for="region">Regional / município</label><select id="region"><option value="all">Todas as regionais</option></select></div>
+            <div class="field"><label for="type">Tipo de segurado</label><select id="type"><option value="all">Todos os tipos</option></select></div>
+            <div class="field"><label for="age">Faixa etária</label><select id="age"><option value="all">Todas as faixas</option><option>Até 59 anos</option><option>60–69 anos</option><option>70–79 anos</option><option>80 anos ou mais</option></select></div>
+            <div class="field"><label for="channel">Canal</label><select id="channel"><option value="all">Todos os canais</option></select></div>
+            <div class="field"><label for="status">Situação do benefício</label><select id="status"><option value="all">Todas as situações</option></select></div>
+          </div>
+          <div class="filter-foot"><strong id="filteredCount">—</strong> registros demonstrativos<br>Os gráficos acompanham os filtros.</div>
+        </section>
+      </aside>
+      <main class="content">
+        <div class="welcome" id="overview">
+          <div><h2 id="welcomeTitle">Visão consolidada</h2><p id="welcomeDescription">Da convocação ao pagamento, com indicadores atualizados pelos filtros.</p></div>
+          <div class="profile-switch" role="group" aria-label="Perfil de visão">
+            <button class="profile-button" type="button" data-profile-button="gestor" aria-pressed="true">Gestor</button>
+            <button class="profile-button" type="button" data-profile-button="operador" aria-pressed="false">Operador</button>
+            <button class="profile-button" type="button" data-profile-button="auditoria" aria-pressed="false">Auditoria</button>
+          </div>
+        </div>
+        <section class="kpis" aria-label="Indicadores principais">
+          <article class="card kpi"><span class="kpi-label">Convocados</span><strong class="kpi-value" id="kpiInvited">—</strong><span class="kpi-foot"><b class="delta" id="deltaInvited">—</b> vs. período anterior</span></article>
+          <article class="card kpi"><span class="kpi-label">Taxa de adesão</span><strong class="kpi-value" id="kpiAdherence">—</strong><span class="kpi-foot"><b class="delta" id="deltaAdherence">—</b> vs. período anterior</span></article>
+          <article class="card kpi"><span class="kpi-label">Recenseados</span><strong class="kpi-value" id="kpiDone">—</strong><span class="kpi-foot"><b class="delta" id="deltaDone">—</b> vs. período anterior</span></article>
+          <article class="card kpi"><span class="kpi-label">Pendentes</span><strong class="kpi-value" id="kpiPending">—</strong><span class="kpi-foot"><b class="delta warn" id="deltaPending">—</b> requerem acompanhamento</span></article>
+          <article class="card kpi"><span class="kpi-label">Benefícios suspensos</span><strong class="kpi-value" id="kpiSuspended">—</strong><span class="kpi-foot"><b class="delta bad" id="deltaSuspended">—</b> aguardam regularização</span></article>
+        </section>
+        <section class="card hero" aria-labelledby="trendTitle">
+          <div class="card-heading"><div><h3 id="trendTitle">Adesão acumulada ao recenseamento</h3><p>Progresso mensal da campanha · série demonstrativa</p></div><span class="badge" style="color:#075e65;background:#d8ffff">Jornada do segurado</span></div>
+          <div class="hero-chart chart" id="trendChart" role="img" aria-label="Gráfico de adesão acumulada ao longo dos meses"></div>
+          <p class="meta">Fonte: dados demonstrativos gerados localmente · Período: <span class="period"></span> · Atualização: <time class="updated"></time></p>
+        </section>
+        <section id="census" aria-labelledby="journeyTitle">
+          <div class="section-heading"><h2 class="section-title" id="journeyTitle">Jornada de ponta a ponta</h2><p>Volume e conversão em cada etapa</p></div>
+          <article class="card"><div class="funnel" id="funnel"></div><p class="loss" id="funnelLoss"></p><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time></p></article>
+        </section>
+        <section id="members">
+          <div class="section-heading"><h2 class="section-title">Adesão e situação cadastral</h2><p>Distribuição da base conforme filtros selecionados</p></div>
+          <div class="grid-two">
+            <article class="card"><div class="card-heading"><div><h3>Adesão por faixa etária</h3><p>Recenseados como proporção dos convocados</p></div><span class="card-icon" aria-hidden="true">▥</span></div><div class="chart" id="ageChart" role="img" aria-label="Gráfico de adesão por faixa etária"></div><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time></p></article>
+            <article class="card" id="benefits"><div class="card-heading"><div><h3>Situação do benefício</h3><p>Estado operacional da população filtrada</p></div><span class="card-icon" aria-hidden="true">◉</span></div><div class="chart short" id="statusChart" role="img" aria-label="Distribuição da situação dos benefícios"></div><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time></p></article>
+          </div>
+        </section>
+        <section>
+          <div class="section-heading"><h2 class="section-title">Canais e evolução mensal</h2><p>Atendimento omnichannel e volume da campanha</p></div>
+          <div class="grid-two">
+            <article class="card"><div class="card-heading"><div><h3>Canal utilizado</h3><p>Recenseamentos concluídos por canal</p></div><span class="card-icon" aria-hidden="true">◎</span></div><div class="chart short" id="channelChart" role="img" aria-label="Distribuição por canal de atendimento"></div><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time></p></article>
+            <article class="card"><div class="card-heading"><div><h3>Recenseados × pendentes</h3><p>Totais por mês de conclusão ou convocação</p></div><span class="card-icon" aria-hidden="true">⌁</span></div><div class="chart" id="monthlyChart" role="img" aria-label="Barras mensais de recenseados e pendentes"></div><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time></p></article>
+          </div>
+        </section>
+        <section id="contributions">
+          <div class="section-heading"><h2 class="section-title">Contribuições</h2><p>Visão financeira da base previdenciária</p></div>
+          <article class="card"><div class="empty">Não há dados de contribuição neste conjunto demonstrativo. Esta seção está pronta para receber os dados da folha via API.</div><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time></p></article>
+        </section>
+        <section>
+          <div class="section-heading"><h2 class="section-title">Visão territorial</h2><p>Progresso por regional e intensidade de adesão</p></div>
+          <div class="grid-two">
+            <article class="card"><div class="card-heading"><div><h3>Progresso por regional</h3><p>Percentual recenseado da população convocada</p></div></div><div class="regional-list" id="regionChart" role="img" aria-label="Progresso de recenseamento por regional"></div><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time></p></article>
+            <article class="card"><div class="card-heading"><div><h3>Mapa de adesão por regional</h3><p>Representação ilustrativa, sem limite cartográfico oficial</p></div></div><div class="map-wrap" id="mapChart" role="img" aria-label="Mapa ilustrativo de adesão por regional"></div><div class="map-legend"><span>Menor</span><span class="gradient-key" aria-hidden="true"></span><span>Maior adesão</span></div><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time></p></article>
+          </div>
+        </section>
+        <section>
+          <div class="section-heading"><h2 class="section-title">Controle e antifraude</h2><p>Validações biométricas e cruzamentos preventivos</p></div>
+          <div class="grid-three">
+            <article class="card"><div class="card-heading"><div><h3>Prova de vida facial</h3><p>Resultado demonstrativo de liveness</p></div></div><div class="stats"><div class="stat good"><span class="stat-label">Aprovadas</span><strong class="stat-value" id="facialApproval">—</strong></div><div class="stat attention"><span class="stat-label">Revisão manual</span><strong class="stat-value" id="facialReview">—</strong></div></div><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time> · Não contém biometria real.</p></article>
+            <article class="card"><div class="card-heading"><div><h3>Óbitos identificados</h3><p>Cruzamento demonstrativo de bases</p></div></div><div class="stats"><div class="stat alert"><span class="stat-label">Ocorrências</span><strong class="stat-value" id="deathCount">—</strong></div><div class="stat"><span class="stat-label">Bases consultadas</span><strong class="stat-value" style="font-size:16px">SISOBI · cartórios</strong></div></div><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time> · Identificações não representam casos reais.</p></article>
+            <article class="card"><div class="card-heading"><div><h3>Prevenção de perdas</h3><p>Estimativas para análise, não valores contábeis</p></div></div><div class="stats"><div class="stat alert"><span class="stat-label">Tentativas bloqueadas</span><strong class="stat-value" id="fraudCount">—</strong></div><div class="stat good"><span class="stat-label">Economia estimada</span><strong class="stat-value" id="savings">—</strong></div></div><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time> · Valores ilustrativos em R$.</p></article>
+          </div>
+        </section>
+        <section>
+          <div class="section-heading"><h2 class="section-title">Operação e atendimento</h2><p>Indicadores sintéticos de serviço e prazos</p></div>
+          <div class="grid-two">
+            <article class="card"><div class="card-heading"><div><h3>Níveis de serviço</h3><p>Sinais operacionais demonstrativos</p></div></div><div class="stats"><div class="stat good"><span class="stat-label">Disponibilidade</span><strong class="stat-value" id="availability">—</strong></div><div class="stat good"><span class="stat-label">SLA atendido</span><strong class="stat-value" id="sla">—</strong></div><div class="stat"><span class="stat-label">Tempo de resposta p95</span><strong class="stat-value" id="latency">—</strong></div><div class="stat attention"><span class="stat-label">Fila de atendimento</span><strong class="stat-value" id="queue">—</strong></div></div><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time> · Não representa telemetria de produção.</p></article>
+            <article class="card operator-focus"><div class="card-heading"><div><h3>Pendências por prazo</h3><p>Priorize atendimento antes do vencimento</p></div><span class="badge warn">Fila operacional</span></div><div class="queue-list" id="deadlineQueue"></div><p class="meta">Fonte: dados demonstrativos · Período: <span class="period"></span> · Atualização: <time class="updated"></time></p></article>
+          </div>
+        </section>
+        <section class="card audit-panel" aria-labelledby="auditTitle"><div class="card-heading"><div><h3 id="auditTitle">Trilha de auditoria demonstrativa</h3><p>Exemplos de eventos sem identificação pessoal</p></div><span class="badge ok">Dados mascarados</span></div><div class="audit-wrap"><table class="audit-table"><thead><tr><th>Horário</th><th>Evento</th><th>Origem</th><th>Resultado</th><th>Identificador</th></tr></thead><tbody id="auditRows"></tbody></table></div><p class="meta">Fonte: eventos simulados · CPF e dados biométricos não são exibidos.</p></section>
+        <footer class="meta" style="padding:4px 2px 14px">Demonstração de interface · Não utilizar para decisões sobre benefícios. Todos os dados e indicadores são sintéticos.</footer>
+      </main>
+    </div>
+  </div>
+  <script>
+    "use strict";
+    const REGIONS = ["Capital","Litoral","Agreste","Sertão","Zona da Mata"];
+    const TYPES = ["Servidor ativo","Aposentado","Pensionista"];
+    const CHANNELS = ["App mobile","Web gov.br","Presencial","Atendimento domiciliar","Unidade móvel"];
+    const STATUSES = ["Regular","Pendente","Suspenso","Óbito identificado"];
+    const MONTHS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+    const COLORS = ["#087e8b","#24b9b5","#316f9b","#e6a23c","#a52929"];
+    const nf = new Intl.NumberFormat("pt-BR");
+    const percent = new Intl.NumberFormat("pt-BR",{style:"percent",maximumFractionDigits:1});
+    const currency = new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
+    const today = new Date();
+    const dateStamp = today.toLocaleDateString("pt-BR");
+    document.querySelector("#topUpdated").textContent = dateStamp;
+    document.querySelectorAll(".updated").forEach(el=>el.textContent=dateStamp);
+    function periodLabel(){return $("#period").selectedOptions[0].textContent;}
+    const options = (id,values) => { const select=document.getElementById(id); values.forEach(value=>{const option=document.createElement("option");option.value=value;option.textContent=value;select.append(option);}); };
+    options("region",REGIONS);
+    options("type",TYPES);
+    options("channel",CHANNELS);
+    options("status",STATUSES);
+    function seeded(seed){let value=seed>>>0;return()=>{value=(value*1664525+1013904223)>>>0;return value/4294967296;};}
+    function makeDemoRecords(total=3600){
+      const rand=seeded(20261016);
+      return Array.from({length:total},(_,index)=>{
+        const year=["2024","2025","2026"][Math.floor(rand()*3)];
+        const region=REGIONS[Math.floor(rand()*REGIONS.length)];
+        const type=TYPES[Math.floor(rand()*TYPES.length)];
+        const age=18+Math.floor(rand()*83);
+        const band=age<60?"Até 59 anos":age<70?"60–69 anos":age<80?"70–79 anos":"80 anos ou mais";
+        const invited=rand()<.91;
+        const notified=invited&&rand()<.94;
+        const started=notified&&rand()<.79;
+        const completed=started&&rand()<.82;
+        const maintained=completed&&rand()<.965;
+        let status;
+        if(!maintained&&completed&&rand()<.12)status="Suspenso";
+        else if(!maintained&&rand()<.08)status="Óbito identificado";
+        else if(!completed||!maintained)status="Pendente";
+        else status="Regular";
+        const month=Math.floor(rand()*12);
+        return {id:index,year,region,type,age,band,channel:CHANNELS[Math.floor(rand()*CHANNELS.length)],status,invited,notified,started,completed,maintained,month,facial:completed?rand():null};
+      });
+    }
+    // Replace this provider with a fetch to the versioned API when connecting production data.
+    const demoRecords=makeDemoRecords();
+    const $=selector=>document.querySelector(selector);
+    const filters=["period","region","type","age","channel","status"];
+    function inSelectedPeriod(record){
+      const monthIndex=record.year*12+record.month;
+      const bounds={"2026-03_2026-08":[2026*12+2,2026*12+7],"all":[2024*12,2026*12+11],"2026":[2026*12,2026*12+11],"2025-07_2026-06":[2025*12+6,2026*12+5]}[$("#period").value];
+      return monthIndex>=bounds[0]&&monthIndex<=bounds[1];
+    }
+    function filteredRecords(){return demoRecords.filter(record=>inSelectedPeriod(record)&&filters.slice(1).every(key=>{const value=$("#"+key).value;if(value==="all")return true;if(key==="age")return record.band===value;if(key==="region")return record.region===value;if(key==="type")return record.type===value;if(key==="channel")return record.channel===value;if(key==="status")return record.status===value;return true;}));}
+    function svg(content,label,viewBox="0 0 700 250"){return `<svg viewBox="${viewBox}" role="img" aria-label="${label}" xmlns="http://www.w3.org/2000/svg">${content}</svg>`;}
+    function chartText(x,y,text,anchor="middle",className="axis-text"){return `<text x="${x}" y="${y}" text-anchor="${anchor}" class="${className}" fill="currentColor" font-family="Segoe UI,Arial,sans-serif" font-size="12">${text}</text>`;}
+    function setSvgStyle(){return `<style>.axis-text{fill:var(--muted)}.axis-line{stroke:var(--line);stroke-width:1}.bar-label{fill:var(--ink);font:600 12px Segoe UI,Arial,sans-serif}.grid-line{stroke:var(--line);stroke-dasharray:3 5}</style>`;}
+    function setText(id,value){document.getElementById(id).textContent=value;}
+    function delta(id,value,kind=""){const el=document.getElementById(id);el.textContent=value;el.className="delta"+(kind?" "+kind:"");}
+    function ratio(part,whole){return whole?part/whole:0;}
+    function drawWave(records){
+      const bins=Array.from({length:12},(_,month)=>records.filter(r=>r.month<=month&&r.completed).length);
+      const max=Math.max(1,...bins);
+      const pts=bins.map((value,index)=>({x:46+index*55.3,y:190-(value/max)*148,value}));
+      const line=pts.map((point,index)=>`${index?"L":"M"}${point.x},${point.y}`).join(" ");
+      const area=`${line} L${pts.at(-1).x},200 L${pts[0].x},200 Z`;
+      let markup=`<defs><linearGradient id="waveFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c7fffa" stop-opacity=".52"/><stop offset="1" stop-color="#c7fffa" stop-opacity=".03"/></linearGradient></defs>`;
+      [45,95,145,195].forEach(y=>markup+=`<line x1="40" y1="${y}" x2="670" y2="${y}" class="wave-grid"/>`);
+      markup+=`<path d="${area}" class="wave-area"/><path d="${line}" class="wave-line"/>`;
+      pts.forEach((point,index)=>{if(index%2===0||index===11)markup+=`<circle cx="${point.x}" cy="${point.y}" r="4" class="wave-point"/>${chartText(point.x,224,MONTHS[index],"middle","wave-text")}${chartText(point.x,Math.max(20,point.y-10),nf.format(point.value),"middle","wave-value")}`;});
+      $("#trendChart").innerHTML=svg(markup,"Adesão acumulada mensal em registros", "0 0 700 240");
+    }
+    function drawFunnel(records){
+      const stages=[["Base cadastral",records.length],["Convocados",records.filter(r=>r.invited).length],["Notificados",records.filter(r=>r.notified).length],["Iniciaram",records.filter(r=>r.started).length],["Prova de vida concluída",records.filter(r=>r.completed).length],["Mantidos na folha",records.filter(r=>r.maintained).length]];
+      const max=Math.max(1,stages[0][1]);
+      $("#funnel").innerHTML=stages.map(([name,count],i)=>`<div class="funnel-row"><span class="funnel-name">${name}</span><div class="funnel-track" aria-hidden="true"><div class="funnel-fill" style="width:${count/max*100}%"></div></div><strong class="funnel-count">${nf.format(count)} <small>${percent.format(ratio(count,max))}</small></strong></div>`).join("");
+      const loss=stages.slice(1).map((stage,i)=>{const previous=stages[i][1];return previous?`${stage[0]}: ${percent.format(1-stage[1]/previous)} de perda`:"";}).filter(Boolean);
+      $("#funnelLoss").textContent="Perda entre etapas: "+loss.join(" · ");
+    }
+    function drawAge(records){
+      const bands=["Até 59 anos","60–69 anos","70–79 anos","80 anos ou mais"];
+      const counts=bands.map(band=>{const set=records.filter(r=>r.band===band);return {band,total:set.filter(r=>r.invited).length,done:set.filter(r=>r.completed).length};});
+      const max=Math.max(1,...counts.map(x=>x.total));let out=setSvgStyle();
+      counts.forEach((item,index)=>{const y=38+index*49,width=item.total?item.done/item.total*390:0;out+=chartText(145,y+13,item.band,"end");out+=`<rect x="165" y="${y}" width="390" height="22" rx="8" fill="var(--surface-2)"/><rect x="165" y="${y}" width="${width}" height="22" rx="8" fill="${COLORS[index]}"/>`;out+=chartText(570,y+15,`${percent.format(ratio(item.done,item.total))} · ${nf.format(item.done)}`,"start","bar-label");});
+      $("#ageChart").innerHTML=svg(out,"Taxa de adesão e quantidade de recenseados por faixa etária");
+    }
+    function drawDonut(target,items,total,label){
+      const radius=67,circumference=2*Math.PI*radius;
+      let offset=0;
+      const circles=items.map((item,index)=>{const value=item.value,arc=total?value/total*circumference:0;const circle=`<circle cx="100" cy="100" r="${radius}" fill="none" stroke="${COLORS[index%COLORS.length]}" stroke-width="23" stroke-dasharray="${arc} ${circumference-arc}" stroke-dashoffset="${-offset}"/>`;offset+=arc;return circle;}).join("");
+      const legend=items.map((item,index)=>`<div class="legend-row"><span class="legend-name"><i class="swatch" style="background:${COLORS[index%COLORS.length]}"></i>${item.name}</span><strong class="legend-value">${nf.format(item.value)}</strong></div>`).join("");
+      const element=document.getElementById(target);
+      element.innerHTML=`<div class="layout-donut"><div class="donut-wrap">${svg(circles,`${label}: ${items.map(x=>`${x.name} ${x.value}`).join(", ")}`,"0 0 200 200")}<div class="donut-hole"><strong>${nf.format(total)}</strong><span>${label}</span></div></div><div class="status-legend">${legend||'<span class="empty">Sem registros neste filtro</span>'}</div></div>`;
+    }
+    function drawMonthly(records){
+      const values=MONTHS.map((name,month)=>({name,done:records.filter(r=>r.month===month&&r.completed).length,pending:records.filter(r=>r.month===month&&!r.completed).length}));
+      const peak=Math.max(1,...values.flatMap(x=>[x.done,x.pending]));let out=setSvgStyle();
+      [0,.5,1].forEach(step=>{const y=196-step*148;out+=`<line x1="42" y1="${y}" x2="680" y2="${y}" class="grid-line"/>`;out+=chartText(35,y+4,nf.format(Math.round(peak*step)),"end");});
+      values.forEach((item,i)=>{const x=53+i*52;const doneHeight=item.done/peak*145,pendingHeight=item.pending/peak*145;out+=`<rect x="${x}" y="${194-doneHeight}" width="17" height="${doneHeight}" rx="3" fill="#087e8b"/><rect x="${x+19}" y="${194-pendingHeight}" width="17" height="${pendingHeight}" rx="3" fill="#e6a23c"/>`;out+=chartText(x+18,218,item.name);});
+      out+=`<rect x="493" y="10" width="10" height="10" rx="2" fill="#087e8b"/>${chartText(509,19,"Recenseados","start")}<rect x="590" y="10" width="10" height="10" rx="2" fill="#e6a23c"/>${chartText(606,19,"Pendentes","start")}`;
+      $("#monthlyChart").innerHTML=svg(out,"Barras mensais de recenseados e pendentes");
+    }
+    function drawRegions(records){
+      const entries=REGIONS.map(region=>{const subset=records.filter(r=>r.region===region),invited=subset.filter(r=>r.invited).length,done=subset.filter(r=>r.completed).length;return {region,rate:ratio(done,invited),done,invited};}).filter(x=>x.invited);
+      $("#regionChart").innerHTML=entries.length?entries.sort((a,b)=>b.rate-a.rate).map(item=>`<div class="regional-row"><span>${item.region}</span><div class="progress-track" role="progressbar" aria-label="${item.region}" aria-valuenow="${Math.round(item.rate*100)}" aria-valuemin="0" aria-valuemax="100"><div class="progress-fill" style="width:${item.rate*100}%"></div></div><strong>${percent.format(item.rate)}</strong></div>`).join(""):'<p class="empty">Sem registros para os filtros selecionados.</p>';
+      const positions=[["Capital",90,40],["Litoral",185,72],["Agreste",275,50],["Sertão",365,86],["Zona da Mata",455,54]];
+      const shapes=positions.map(([region,x,y],index)=>{const entry=entries.find(item=>item.region===region);const rate=entry?.rate||0;const color=`hsl(${167-rate*36} ${38+rate*40}% ${88-rate*39}%)`;return `<g><rect class="map-region" x="${x}" y="${y}" width="102" height="68" rx="14" fill="${color}" tabindex="0" aria-label="${region}: ${percent.format(rate)}"/><text class="map-label" x="${x+51}" y="${y+38}" text-anchor="middle">${region}</text></g>`;}).join("");
+      $("#mapChart").innerHTML=svg(`<rect x="20" y="15" width="610" height="175" rx="24" fill="var(--surface-2)"/>${shapes}`,"Mapa esquemático demonstrativo das regionais","0 0 650 205");
+    }
+    function update(records){
+      document.querySelectorAll(".period").forEach(el=>el.textContent=periodLabel());
+      const invited=records.filter(r=>r.invited).length,completed=records.filter(r=>r.completed).length,pending=records.filter(r=>!r.completed).length,suspended=records.filter(r=>r.status==="Suspenso").length;
+      const previousInvited=Math.max(1,Math.round(invited*.91)),previousDone=Math.max(1,Math.round(completed*.93)),previousRate=Math.max(.01,ratio(completed,invited)-.025);
+      setText("filteredCount",nf.format(records.length));setText("kpiInvited",nf.format(invited));setText("kpiAdherence",percent.format(ratio(completed,invited)));setText("kpiDone",nf.format(completed));setText("kpiPending",nf.format(pending));setText("kpiSuspended",nf.format(suspended));
+      delta("deltaInvited",`↑ ${percent.format(ratio(invited-previousInvited,previousInvited))}`);
+      delta("deltaAdherence",`↑ ${percent.format(ratio(completed,invited)-previousRate)}`);
+      delta("deltaDone",`↑ ${percent.format(ratio(completed-previousDone,previousDone))}`);
+      delta("deltaPending",`${nf.format(pending)} em aberto`,"warn");delta("deltaSuspended",`${nf.format(suspended)} casos`,"bad");
+      drawWave(records);drawFunnel(records);drawAge(records);
+      drawDonut("statusChart",STATUSES.map((name,index)=>({name,value:records.filter(r=>r.status===name).length})),records.length,"benefícios");
+      drawDonut("channelChart",CHANNELS.map((name,index)=>({name,value:records.filter(r=>r.completed&&r.channel===name).length})),completed,"concluídos");
+      drawMonthly(records);drawRegions(records);drawMapIfNeeded(records);
+      const completedWithFace=records.filter(r=>r.facial!==null);
+      setText("facialApproval",percent.format(completedWithFace.length?completedWithFace.filter(r=>r.facial>.13).length/completedWithFace.length:0));
+      setText("facialReview",nf.format(completedWithFace.filter(r=>r.facial<=.13).length));
+      const deaths=records.filter(r=>r.status==="Óbito identificado").length;
+      setText("deathCount",nf.format(deaths));setText("fraudCount",nf.format(Math.round(deaths*.72+suspended*.14)));setText("savings",currency.format((deaths*1520+suspended*780)*12));
+      setText("availability","99,93%");setText("sla",percent.format(Math.max(.91,.985-pending/Math.max(1,records.length)*.12)));setText("latency","1,4 s");setText("queue",nf.format(Math.round(pending*.17)));
+      const deadlines=[["Vencidas",Math.round(pending*.08),"danger"],["Vencem em até 7 dias",Math.round(pending*.23),"warn"],["Vencem em até 30 dias",Math.round(pending*.42),"ok"],["Sem prazo próximo",Math.max(0,pending-Math.round(pending*.73)),"ok"]];
+      $("#deadlineQueue").innerHTML=deadlines.map(([label,count,state])=>`<div class="queue-row"><span>${label}</span><span><strong>${nf.format(count)}</strong> <span class="badge ${state}">${state==="danger"?"Prioridade":state==="warn"?"Atenção":"No prazo"}</span></span></div>`).join("");
+      const auditEvents=[["09:42","Prova de vida validada","Web gov.br","Aprovado","CNS-•••-1842"],["09:38","Documento encaminhado","Atendimento presencial","Revisão","CNS-•••-0917"],["09:31","Cruzamento de óbito","SISOBI / cartório","Alerta","CNS-•••-5570"],["09:24","Tentativa irregular bloqueada","App mobile","Bloqueado","CNS-•••-3218"]];
+      $("#auditRows").innerHTML=auditEvents.map(([time,event,origin,result,id])=>`<tr><td>${time}</td><td>${event}</td><td>${origin}</td><td>${result}</td><td>${id}</td></tr>`).join("");
+    }
+    function drawMapIfNeeded(records){drawRegions(records);}
+    filters.forEach(key=>$("#"+key).addEventListener("change",()=>update(filteredRecords())));
+    $("#clearFilters").addEventListener("click",()=>{filters.forEach(key=>$("#"+key).value="all");$("#period").value="2026-03_2026-08";update(filteredRecords());});
+    document.querySelectorAll(".nav-link").forEach(link=>link.addEventListener("click",()=>{document.querySelectorAll(".nav-link").forEach(item=>item.removeAttribute("aria-current"));link.setAttribute("aria-current","page");}));
+    document.querySelectorAll("[data-profile-button]").forEach(button=>button.addEventListener("click",()=>{const profile=button.dataset.profileButton;document.body.dataset.profile=profile;document.querySelectorAll("[data-profile-button]").forEach(item=>item.setAttribute("aria-pressed",String(item===button)));const content={gestor:["Visão consolidada","Da convocação ao pagamento, com indicadores atualizados pelos filtros."],operador:["Visão operacional","Priorize filas, prazos e pessoas que precisam de atendimento."],auditoria:["Visão de auditoria","Consulte indicadores de controle e uma trilha demonstrativa sem dados pessoais."]};setText("welcomeTitle",content[profile][0]);setText("welcomeDescription",content[profile][1]);}));
+    $("#themeToggle").addEventListener("click",()=>{const dark=document.documentElement.dataset.theme!=="dark";document.documentElement.dataset.theme=dark?"dark":"light";$("#themeToggle").textContent=dark?"☀":"☾";$("#themeToggle").setAttribute("aria-label",dark?"Ativar tema claro":"Ativar tema escuro");});
+    update(filteredRecords());
+  </script>
+</body>
+</html>

@@ -4,15 +4,15 @@
     "cpus": 4
   },
   "waitFor": "onCreateCommand",
-  "updateContentCommand": "npm install",
+  "updateContentCommand": "npm install && npm --prefix backend install",
   "postCreateCommand": "",
   "postAttachCommand": {
-    "server": "npm start"
+    "server": "npm run dev:stack"
   },
   "customizations": {
     "codespaces": {
       "openFiles": [
-        "src/App.jsx"
+        "src/App.tsx"
       ]
     }
   },

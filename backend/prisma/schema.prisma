@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+  AUDITOR
+  MEMBER
+}
+
+enum PersonnelType {
+  ACTIVE
+  RETIRED
+  PENSIONER
+}
+
+enum CensusStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
+enum OccurrenceStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  oidcSub   String?  @unique
+  email     String   @unique
+  passwordHash String?
+  fullName  String
+  role      UserRole @default(MEMBER)
+  active    Boolean  @default(true)
+  sessionVersion Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  occurrences Ocorrencia[]
+}
+
+model ServidorAtivo {
+  id                       String   @id @default(uuid()) @db.Uuid
+  idSegurado               String?  @unique
+  nomeCiphertext           String
+  cpfCiphertext            String
+  cpfHash                  String   @unique
+  matriculaCiphertext      String
+  dataNascimentoCiphertext String?
+  tempoContribuicaoAnos    Decimal? @db.Decimal(6, 2)
+  regime                   String?
+  fonteDados               String?
+  cargo                    String
+  admissao                 DateTime?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  censusRecords            CensoRegistro[]
+  payroll                  FolhaPagamento[]
+  @@index([cargo])
+}
+
+model Aposentado {
+  id                       String   @id @default(uuid()) @db.Uuid
+  idSegurado               String?  @unique
+  nomeCiphertext           String
+  cpfCiphertext            String
+  cpfHash                  String   @unique
+  matriculaCiphertext      String
+  dataNascimentoCiphertext String?
+  tempoContribuicaoAnos    Decimal? @db.Decimal(6, 2)
+  regime                   String?
+  fonteDados               String?
+  beneficio                String
+  inicioBeneficio          DateTime?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  censusRecords            CensoRegistro[]
+  payroll                  FolhaPagamento[]
+}
+
+model Pensionista {
+  id                       String   @id @default(uuid()) @db.Uuid
+  idSegurado               String?  @unique
+  nomeCiphertext           String
+  cpfCiphertext            String
+  cpfHash                  String   @unique
+  matriculaCiphertext      String
+  dataNascimentoCiphertext String?
+  tempoContribuicaoAnos    Decimal? @db.Decimal(6, 2)
+  regime                   String?
+  fonteDados               String?
+  beneficio                String
+  instituidorCiphertext    String?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+  censusRecords            CensoRegistro[]
+  payroll                  FolhaPagamento[]
+}
+
+model CensoRegistro {
+  id                String        @id @default(uuid()) @db.Uuid
+  tipo              PersonnelType
+  status            CensusStatus  @default(PENDING)
+  dataCadastro      DateTime      @default(now())
+  dataConclusao     DateTime?
+  ultimoAcesso      DateTime?
+  observacao        String?
+  servidorAtivoId   String?       @db.Uuid
+  aposentadoId      String?       @db.Uuid
+  pensionistaId     String?       @db.Uuid
+  servidorAtivo     ServidorAtivo? @relation(fields: [servidorAtivoId], references: [id], onDelete: Cascade)
+  aposentado        Aposentado?    @relation(fields: [aposentadoId], references: [id], onDelete: Cascade)
+  pensionista       Pensionista?   @relation(fields: [pensionistaId], references: [id], onDelete: Cascade)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  @@index([status, dataCadastro])
+  @@index([tipo, dataCadastro])
+}
+
+model FolhaPagamento {
+  id                String        @id @default(uuid()) @db.Uuid
+  competencia       DateTime      @db.Date
+  proventos         Decimal       @db.Decimal(15, 2)
+  baseCalculo       Decimal       @db.Decimal(15, 2)
+  descontos         Decimal       @db.Decimal(15, 2)
+  irrf              Decimal       @db.Decimal(15, 2)
+  contribuicaoSegurado Decimal     @db.Decimal(15, 2)
+  contribuicaoPatronal Decimal    @db.Decimal(15, 2)
+  valorBeneficio     Decimal       @default(0) @db.Decimal(15, 2)
+  periodoReferenciaInicio DateTime? @db.Date
+  periodoReferenciaFim DateTime?    @db.Date
+  servidorAtivoId   String?       @db.Uuid
+  aposentadoId      String?       @db.Uuid
+  pensionistaId     String?       @db.Uuid
+  servidorAtivo     ServidorAtivo? @relation(fields: [servidorAtivoId], references: [id], onDelete: Cascade)
+  aposentado        Aposentado?    @relation(fields: [aposentadoId], references: [id], onDelete: Cascade)
+  pensionista       Pensionista?   @relation(fields: [pensionistaId], references: [id], onDelete: Cascade)
+  createdAt         DateTime      @default(now())
+  @@index([competencia])
+}
+
+model Ocorrencia {
+  id          String           @id @default(uuid()) @db.Uuid
+  tipoPessoa  PersonnelType
+  pessoaId    String           @db.Uuid
+  titulo      String
+  descricao   String
+  status      OccurrenceStatus @default(OPEN)
+  abertoPorId String           @db.Uuid
+  abertoPor   User             @relation(fields: [abertoPorId], references: [id])
+  resolvidoEm DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  @@index([tipoPessoa, pessoaId, status])
+}
+
+model ActuarialConfig {
+  id                       String   @id @default(uuid()) @db.Uuid
+  nome                     String
+  vigenciaInicio           DateTime @db.Date
+  vigenciaFim              DateTime? @db.Date
+  aliquotaAtivo            Decimal  @db.Decimal(7, 6)
+  aliquotaAposentado       Decimal  @db.Decimal(7, 6)
+  aliquotaPensionista      Decimal  @db.Decimal(7, 6)
+  aliquotaPatronal         Decimal  @db.Decimal(7, 6)
+  deducaoDependente        Decimal  @db.Decimal(15, 2) @default(0)
+  tetoPrevidenciario       Decimal? @db.Decimal(15, 2)
+  isencaoBeneficioAte      Decimal  @db.Decimal(15, 2) @default(0)
+  irrfBrackets             IrrfBracket[]
+  createdAt                DateTime @default(now())
+  @@index([vigenciaInicio, vigenciaFim])
+}
+
+model IrrfBracket {
+  id          String         @id @default(uuid()) @db.Uuid
+  configId    String         @db.Uuid
+  limiteInferior Decimal     @db.Decimal(15, 2)
+  limiteSuperior Decimal?    @db.Decimal(15, 2)
+  aliquota    Decimal        @db.Decimal(7, 6)
+  parcelaDeduzir Decimal     @db.Decimal(15, 2)
+  config      ActuarialConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  @@index([configId, limiteInferior])
+}

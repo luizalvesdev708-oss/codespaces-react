@@ -1,0 +1,4 @@
+ALTER TABLE "User"
+  ALTER COLUMN "oidcSub" DROP NOT NULL,
+  ADD COLUMN "passwordHash" TEXT,
+  ADD COLUMN "sessionVersion" INTEGER NOT NULL DEFAULT 0;
