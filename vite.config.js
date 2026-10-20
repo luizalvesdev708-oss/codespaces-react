@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
         apply: 'build',
         generateBundle(_options, bundle) {
           const assets = Object.keys(bundle)
-            .filter((fileName) => /\.(js|css)$/.test(fileName))
+            .filter((fileName) => /\.(js|css|png|jpe?g|svg|webp|woff2?|ttf|otf)$/i.test(fileName))
             .map((fileName) => `/${fileName}`);
           this.emitFile({
             type: 'asset',

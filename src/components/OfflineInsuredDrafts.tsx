@@ -55,7 +55,7 @@ const emptyForm: InsuredDraftPayload = {
 };
 
 function statusLabel(status: OfflineMutation['status']): string {
-  if (status === 'synced') return 'Sincronizado · cópia local preservada';
+  if (status === 'synced') return 'Sincronizado · cópia criptografada local';
   if (status === 'conflict') return 'Conflito · requer revisão';
   if (status === 'blocked') return 'Bloqueado · requer ação';
   return 'Pendente de sincronização';
@@ -221,7 +221,7 @@ export default function OfflineInsuredDrafts({ userId, canWrite, isOnline }: Off
   return (
     <section className="panel offline-insured" aria-labelledby="offline-insured-title">
       <h2 id="offline-insured-title" className="panel__title">Cadastro offline protegido</h2>
-      <p className="offline-insured__note">Rascunhos cifrados com AES-GCM no dispositivo. A frase secreta nunca é armazenada nem enviada. Cópias sincronizadas permanecem até exclusão manual; apagar a cópia local não apaga o registro do servidor.</p>
+      <p className="offline-insured__note">Rascunhos cifrados com AES-GCM no dispositivo. A frase secreta nunca é armazenada nem enviada. Sair apaga os rascunhos deste dispositivo; apagar uma cópia local não remove um registro já enviado ao servidor.</p>
       <div className="offline-insured__vault">
         <strong>{unlocked ? 'Cofre desbloqueado neste dispositivo' : configured ? 'Cofre bloqueado' : 'Cofre ainda não configurado'}</strong>
         {unlocked ? <button className="button button--quiet" type="button" onClick={lockVault}>Bloquear cofre</button> : (

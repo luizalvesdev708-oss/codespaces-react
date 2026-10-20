@@ -10,6 +10,33 @@ import {
 import type { MutationMethod } from './offlineStore';
 
 const activeSyncs = new Map<string, Promise<void>>();
+const retryAttempts = new Map<string, number>();
+const retryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const RETRY_DELAYS_MS = [5_000, 15_000, 30_000, 60_000, 300_000];
+
+// O atraso crescente evita repetir requisições continuamente durante uma falha do serviço.
+function scheduleRetry(userId: string): void {
+  if (retryTimers.has(userId)) return;
+  const attempt = retryAttempts.get(userId) ?? 0;
+  const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
+  retryAttempts.set(userId, attempt + 1);
+  const timer = setTimeout(() => {
+    retryTimers.delete(userId);
+    if (navigator.onLine) {
+      void syncPendingMutations(userId).catch((error: unknown) => {
+        console.error('A nova tentativa de sincronização falhou.', error);
+      });
+    }
+  }, delay);
+  retryTimers.set(userId, timer);
+}
+
+function clearRetry(userId: string): void {
+  const timer = retryTimers.get(userId);
+  if (timer) clearTimeout(timer);
+  retryTimers.delete(userId);
+  retryAttempts.delete(userId);
+}
 
 export async function mutateOfflineFirst(
   userId: string,
@@ -65,6 +92,7 @@ async function runSync(userId: string): Promise<void> {
   if (!navigator.onLine) return;
 
   const mutations = await listMutations(userId);
+  let shouldRetry = false;
   for (const mutation of mutations) {
     if (!navigator.onLine) break;
     if (mutation.status !== 'pending') continue;
@@ -84,6 +112,7 @@ async function runSync(userId: string): Promise<void> {
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
     } catch {
+      shouldRetry = true;
       break;
     }
 
@@ -105,13 +134,19 @@ async function runSync(userId: string): Promise<void> {
       });
       break;
     }
-    if (response.status >= 500) break;
+    if (response.status >= 500) {
+      shouldRetry = true;
+      break;
+    }
 
     await updateMutation(mutation.id, {
       status: 'blocked',
       error: `O servidor recusou esta alteração (HTTP ${response.status}).`,
     });
   }
+
+  if (shouldRetry && navigator.onLine) scheduleRetry(userId);
+  else clearRetry(userId);
 }
 
 export { retryMutation };

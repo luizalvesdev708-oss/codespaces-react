@@ -4,7 +4,10 @@ import { DATA } from '../data/mockData';
 import ReportBuilder from './ReportBuilder';
 import { buildReportCsv } from '../utils/reportExport';
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 test('monta prévia cadastral com filtros e sem CPF completo', () => {
   render(<ReportBuilder data={DATA} />);
@@ -83,6 +86,44 @@ test('carrega todas as páginas para exportar mais registros que o limite do das
   expect(screen.getByRole('button', { name: '↓ CSV' }).hasAttribute('disabled')).toBe(false);
   expect(fetchMock).toHaveBeenCalledTimes(2);
   expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(501);
+});
+
+test('usa páginas de relatório previamente salvas quando o navegador está offline', async () => {
+  vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+  const record = { ...DATA.records[0], cadastro: '15/03/2026' };
+  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), window.location.origin);
+    const page = Number(url.searchParams.get('page'));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        records: page === 1 ? Array.from({ length: 1_000 }, () => record) : [record],
+        total: 1_001,
+        page,
+        pageSize: 1_000,
+      }),
+    } as Response;
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  const filteredData = {
+    ...DATA,
+    records: DATA.records.slice(0, 500),
+    censo: { ...DATA.censo, registros: 1_001 },
+    filters: {
+      from: null,
+      to: null,
+      regime: null,
+      source: null,
+      category: 'ALL',
+      competence: null,
+    },
+  };
+
+  render(<ReportBuilder data={filteredData} userId="user-1" />);
+
+  expect(await screen.findByText('1.001 linha(s)')).toBeDefined();
+  expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
 test('CSV protege conteúdo interpretável como fórmula e preserva valores numéricos', () => {

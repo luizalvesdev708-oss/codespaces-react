@@ -34,13 +34,27 @@ export interface PayrollData {
   ativos: ActivePayroll; beneficios: BenefitPayroll[]; beneficiarios: number;
   total_vencimentos_beneficios: number; total_descontos_beneficios: number; total_liquido_beneficios: number;
 }
+export interface PayrollHistoryEntry {
+  competence: string;
+  gross: number;
+  discounts: number;
+  payroll_records: number;
+}
+export interface PayrollCategoryTotal {
+  category: 'ACTIVE' | 'RETIRED' | 'PENSIONER';
+  count: number;
+  gross: number;
+  discounts: number;
+}
 export interface DashboardData {
   records: CensoRecord[]; cargo_counts: Record<string, number>; cadastro_counts: Record<string, number>;
   payroll: PayrollData; censo: CensusSummary;
+  payroll_history?: PayrollHistoryEntry[];
+  payroll_by_category?: PayrollCategoryTotal[];
   analytics?: CensusAnalytics;
   filters?: {
-    from: string | null; to: string | null; regime: string | null; source: string | null;
+    from: string | null; to: string | null; regime: string | null; source: string | null; cargo?: string | null;
     category: string; competence: string | null;
   };
-  filterOptions?: { regimes: string[]; sources: string[] };
+  filterOptions?: { cargos?: string[]; regimes: string[]; sources: string[] };
 }

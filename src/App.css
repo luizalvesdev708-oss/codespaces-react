@@ -1,4 +1,7 @@
 :root { --ink:#30474f; --muted:#6d7d82; --line:#bdcac6; --paper:#f7f9f8; --canvas:#eaf0ed; --green:#4d9b90; --green-dark:#103f50; --green-soft:#dceae5; --blue:#3d6780; --orange:#bd8d56; --header:#2e454e; }
+.pwa-controls { position:sticky; top:0; z-index:100; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px; padding:7px 12px; border-bottom:1px solid #bdcac6; background:#f7f9f8; color:#30474f; font-size:12px; }
+.pwa-controls__button { min-height:32px; padding:5px 12px; border:1px solid #103f50; border-radius:4px; background:#103f50; color:#fff; font-weight:700; }
+.pwa-controls__button:hover { background:#174d5e; }
 .app-shell .topbar { background:var(--header); }
 .app-shell .topbar { flex-wrap:wrap; }
 .topbar__account { display:flex; align-items:center; gap:10px; margin-left:auto; color:#e6f1ed; font-size:11px; white-space:nowrap; }

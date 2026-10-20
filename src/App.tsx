@@ -5,6 +5,7 @@ import Filters from './components/Filters';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 import ConnectionStatus from './components/ConnectionStatus';
+import PwaControls from './components/PwaControls';
 import Beneficios from './pages/Beneficios';
 import Cadastro from './pages/Cadastro';
 import Contribuicoes from './pages/Contribuicoes';
@@ -107,7 +108,7 @@ function Dashboard() {
     setIsDashboardLoading(true);
     setDashboardError('');
     try {
-      if (!navigator.onLine && user && !periodFrom && !periodTo && !regime && !institutionalRegime && !source) {
+      if (!navigator.onLine && user && !periodFrom && !periodTo && !regime && !institutionalRegime && !source && !censusFilters.cargo) {
         const cachedData = await readDashboardSnapshot(user.sub);
         if (requestNumber !== dashboardRequest.current) return;
         const cachedFiltersMatch = cachedData?.filters
@@ -115,7 +116,8 @@ function Dashboard() {
           && cachedData.filters.to === null
           && cachedData.filters.category === 'ALL'
           && cachedData.filters.regime === null
-          && cachedData.filters.source === null;
+          && cachedData.filters.source === null
+          && !cachedData.filters.cargo;
         if (cachedData && cachedFiltersMatch) {
           setData(cachedData);
           setIsUsingLocalData(true);
@@ -134,13 +136,14 @@ function Dashboard() {
       if (regime) params.set('category', regime);
       if (institutionalRegime) params.set('regime', institutionalRegime);
       if (source) params.set('source', source);
+      if (censusFilters.cargo) params.set('cargo', censusFilters.cargo);
       const query = params.toString();
-      const result = await apiRequest<DashboardData>(`/dashboard/data${query ? `?${query}` : ''}`);
+      const result = await apiRequest<DashboardData>(`/dashboard/data${query ? `?${query}` : ''}`, {}, user?.sub);
       if (requestNumber !== dashboardRequest.current) return;
       if (!result) throw new ApiError('O serviço não retornou os dados do painel.', 502);
       setData(result);
       setIsUsingLocalData(false);
-      if (user && !periodFrom && !periodTo && !regime && !institutionalRegime && !source) {
+      if (user && !periodFrom && !periodTo && !regime && !institutionalRegime && !source && !censusFilters.cargo) {
         try {
           await saveDashboardSnapshot(user.sub, result);
         } catch (error) {
@@ -158,7 +161,8 @@ function Dashboard() {
             && cachedData.filters.to === (periodTo || null)
             && cachedData.filters.category === (regime || 'ALL')
             && cachedData.filters.regime === (institutionalRegime || null)
-            && cachedData.filters.source === (source || null);
+            && cachedData.filters.source === (source || null)
+            && cachedData.filters.cargo === (censusFilters.cargo || null);
           if (cachedData && cachedFiltersMatch) {
             setData(cachedData);
             setIsUsingLocalData(true);
@@ -173,7 +177,7 @@ function Dashboard() {
     } finally {
       if (requestNumber === dashboardRequest.current) setIsDashboardLoading(false);
     }
-  }, [periodFrom, periodTo, regime, institutionalRegime, source, user]);
+  }, [censusFilters.cargo, periodFrom, periodTo, regime, institutionalRegime, source, user]);
 
   useEffect(() => { void loadDashboard(); }, [loadDashboard]);
 
@@ -204,6 +208,10 @@ function Dashboard() {
     filterTrigger.current?.focus();
   };
   const handleLogout = async () => {
+    if (offlineSync.mutations.length > 0
+      && !window.confirm('Sair apagará os dados salvos e os rascunhos offline deste usuário neste dispositivo. Alterações ainda não sincronizadas serão perdidas. Deseja continuar?')) {
+      return;
+    }
     setLogoutError('');
     setIsLoggingOut(true);
     try {
@@ -218,7 +226,7 @@ function Dashboard() {
   };
   const filterProps = {
     page,
-    cargos: censusFilters.cargos,
+    cargos: data?.filterOptions?.cargos ?? censusFilters.cargos,
     cargo: censusFilters.cargo,
     status: censusFilters.status,
     search: censusFilters.search,
@@ -235,7 +243,10 @@ function Dashboard() {
     sources: data?.filterOptions?.sources ?? [],
     onPeriodFromChange: setPeriodFrom,
     onPeriodToChange: setPeriodTo,
-    onRegimeChange: setRegime,
+    onRegimeChange: (value: '' | 'ACTIVE' | 'RETIRED' | 'PENSIONER') => {
+      setRegime(value);
+      if (value !== 'ACTIVE') censusFilters.setCargo('');
+    },
     onInstitutionalRegimeChange: setInstitutionalRegime,
     onSourceChange: setSource,
     onClearGlobal: () => {
@@ -331,7 +342,25 @@ function Dashboard() {
           <Filters {...filterProps} />
         </Sidebar>
         <main className="main-content">
-          {page === 'overview' && <Overview data={data} />}
+          {page === 'overview' && <Overview
+            data={data}
+            category={regime}
+            cargo={censusFilters.cargo}
+            from={periodFrom}
+            to={periodTo}
+            onCategoryChange={(value) => {
+              setRegime(value);
+              if (value !== 'ACTIVE') censusFilters.setCargo('');
+            }}
+            onCargoChange={(value) => {
+              censusFilters.setCargo(value);
+              if (value) setRegime('ACTIVE');
+            }}
+            onPeriodChange={(from, to) => {
+              setPeriodFrom(from);
+              setPeriodTo(to);
+            }}
+          />}
           {page === 'cadastro' && <Cadastro data={data} records={censusFilters.records} />}
           {page === 'segurados' && <Segurados
             data={data}
@@ -343,6 +372,7 @@ function Dashboard() {
           {page === 'contribuicoes' && <Contribuicoes data={data} />}
           {page === 'relatorios' && <ReportBuilder
             data={data}
+            userId={user?.sub ?? ''}
             isAdmin={user?.roles.includes('ADMIN') ?? false}
             dashboardFilters={data.filters}
           />}
@@ -394,6 +424,7 @@ function Dashboard() {
 export default function App() {
   return (
     <AuthProvider>
+      <PwaControls />
       <AppContent />
     </AuthProvider>
   );

@@ -17,14 +17,24 @@ async function readErrorMessage(response: Response) {
   return `A solicitação falhou (HTTP ${response.status}).`;
 }
 
-export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T | undefined> {
+export async function apiRequest<T>(
+  path: string,
+  init: RequestInit = {},
+  offlineCacheUserId?: string,
+): Promise<T | undefined> {
   let response: Response;
   try {
+    const endpoint = path.split('?')[0];
+    const canCacheOffline = offlineCacheUserId
+      && (endpoint === '/dashboard/data' || endpoint === '/reports/census-records');
     response = await fetch(`/api${path}`, {
       ...init,
       credentials: 'include',
       headers: {
         Accept: 'application/json',
+        ...(canCacheOffline && (init.method ?? 'GET').toUpperCase() === 'GET'
+          ? { 'X-PWA-Cache-User': offlineCacheUserId }
+          : {}),
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
         ...init.headers,
       },

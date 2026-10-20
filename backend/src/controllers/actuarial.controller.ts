@@ -30,6 +30,7 @@ const dashboardFilterSchema = z.object({
   from: dateOnly.optional(),
   to: dateOnly.optional(),
   category: z.nativeEnum(PersonnelType).optional(),
+  cargo: z.string().trim().min(1).max(120).optional(),
   regime: z.string().trim().min(1).max(80).optional(),
   source: z.string().trim().min(1).max(120).optional(),
 }).refine((filter) => !filter.from || !filter.to || filter.from <= filter.to, {
@@ -67,8 +68,11 @@ function personWhere(regime?: string, source?: string): { regime?: string; fonte
   };
 }
 
-function censusLinkedPersonFilter(regime?: string, source?: string): Prisma.CensoRegistroWhereInput[] {
+function censusLinkedPersonFilter(regime?: string, source?: string, cargo?: string): Prisma.CensoRegistroWhereInput[] {
   const where = personWhere(regime, source);
+  if (cargo) {
+    return [{ servidorAtivo: { is: { ...where, cargo } } }];
+  }
   return [
     { servidorAtivo: { is: where } },
     { aposentado: { is: where } },
@@ -112,6 +116,7 @@ function censusWhere(
   category?: PersonnelType,
   regime?: string,
   source?: string,
+  cargo?: string,
 ): Prisma.CensoRegistroWhereInput {
   const bounds = periodBounds(from, to);
   const constraints: Prisma.CensoRegistroWhereInput[] = [];
@@ -123,8 +128,8 @@ function censusWhere(
       ],
     });
   }
-  if (regime || source) {
-    constraints.push({ OR: censusLinkedPersonFilter(regime, source) });
+  if (regime || source || cargo) {
+    constraints.push({ OR: censusLinkedPersonFilter(regime, source, cargo) });
   }
   return {
     ...(category ? { tipo: category } : {}),
@@ -138,6 +143,7 @@ function payrollWhere(
   category?: PersonnelType,
   regime?: string,
   source?: string,
+  cargo?: string,
 ): Prisma.FolhaPagamentoWhereInput {
   const bounds = periodBounds(from, to);
   return {
@@ -145,7 +151,8 @@ function payrollWhere(
     ...(category === 'ACTIVE' ? { servidorAtivoId: { not: null } } : {}),
     ...(category === 'RETIRED' ? { aposentadoId: { not: null } } : {}),
     ...(category === 'PENSIONER' ? { pensionistaId: { not: null } } : {}),
-    ...(regime || source ? { OR: payrollLinkedPersonFilter(regime, source) } : {}),
+    ...(cargo ? { servidorAtivo: { is: { ...personWhere(regime, source), cargo } } } : {}),
+    ...(!cargo && (regime || source) ? { OR: payrollLinkedPersonFilter(regime, source) } : {}),
   };
 }
 
@@ -190,8 +197,8 @@ function readableName(value: string) {
 export const dashboardData: RequestHandler = async (request, response, next) => {
   try {
     const filters = dashboardFilterSchema.parse(request.query);
-    const censusQuery = censusWhere(filters.from, filters.to, filters.category, filters.regime, filters.source);
-    const payrollQuery = payrollWhere(filters.from, filters.to, filters.category, filters.regime, filters.source);
+    const censusQuery = censusWhere(filters.from, filters.to, filters.category, filters.regime, filters.source, filters.cargo);
+    const payrollQuery = payrollWhere(filters.from, filters.to, filters.category, filters.regime, filters.source, filters.cargo);
     const latestPayroll = await prisma.folhaPagamento.aggregate({ where: payrollQuery, _max: { competencia: true } });
     const competence = latestPayroll._max.competencia;
     const censusRecordsQuery = prisma.censoRegistro.findMany({
@@ -212,8 +219,11 @@ export const dashboardData: RequestHandler = async (request, response, next) => 
         pensionista: { select: { beneficio: true } },
       },
     });
-    const activeWhere = personWhere(filters.regime, filters.source);
-    const [censusTotal, censusByStatus, censusDates, censusRecordsRaw, activePeople, payrollRecords, activeCount, retiredCount, pensionerCount, activeDemographics, retiredDemographics, pensionerDemographics, activeRegimes, retiredRegimes, pensionerRegimes, activeSources, retiredSources, pensionerSources] = await Promise.all([
+    const activeWhere = {
+      ...personWhere(filters.regime, filters.source),
+      ...(filters.cargo ? { cargo: filters.cargo } : {}),
+    };
+    const [censusTotal, censusByStatus, censusDates, censusRecordsRaw, activePeople, payrollRecords, activeCount, retiredCount, pensionerCount, activeDemographics, retiredDemographics, pensionerDemographics, activeRegimes, retiredRegimes, pensionerRegimes, activeSources, retiredSources, pensionerSources, payrollHistory, allActiveJobs] = await Promise.all([
       prisma.censoRegistro.count({ where: censusQuery }),
       prisma.censoRegistro.groupBy({ by: ['status'], where: censusQuery, _count: { _all: true } }),
       prisma.censoRegistro.findMany({ where: censusQuery, select: { dataCadastro: true }, orderBy: { dataCadastro: 'asc' }, take: 5000 }),
@@ -232,6 +242,21 @@ export const dashboardData: RequestHandler = async (request, response, next) => 
       prisma.servidorAtivo.findMany({ where: { fonteDados: { not: null } }, distinct: ['fonteDados'], select: { fonteDados: true } }),
       prisma.aposentado.findMany({ where: { fonteDados: { not: null } }, distinct: ['fonteDados'], select: { fonteDados: true } }),
       prisma.pensionista.findMany({ where: { fonteDados: { not: null } }, distinct: ['fonteDados'], select: { fonteDados: true } }),
+      prisma.folhaPagamento.groupBy({
+        by: ['competencia'],
+        where: payrollWhere(undefined, undefined, filters.category, filters.regime, filters.source, filters.cargo),
+        // Soma valores por competência para não estimar meses ausentes nem anualizar a folha.
+        _sum: { proventos: true, descontos: true },
+        _count: { _all: true },
+        orderBy: { competencia: 'asc' },
+      }),
+      prisma.servidorAtivo.groupBy({
+        by: ['cargo'],
+        where: personWhere(filters.regime, filters.source),
+        _count: { _all: true },
+        orderBy: { cargo: 'asc' },
+        take: 100,
+      }),
     ]);
     const censusRecords = censusRecordsRaw as DashboardCensusRecord[];
 
@@ -262,6 +287,25 @@ export const dashboardData: RequestHandler = async (request, response, next) => 
     const totalBenefitsDiscounts = sum(benefits.map((item) => item.descontos));
     const totalBenefitsNet = sum(benefits.map((item) => item.liquido));
     const dates = censusDates.map((item) => item.dataCadastro);
+    const payrollByCategory = [
+      {
+        category: 'ACTIVE',
+        count: activePayrollRecords.length,
+        gross: activeProventos,
+        discounts: activeDescontos,
+      },
+      ...(['RETIRED', 'PENSIONER'] as const).map((category) => {
+        const rows = benefitPayrollRecords.filter((item) => (
+          category === 'RETIRED' ? item.aposentadoId !== null : item.pensionistaId !== null
+        ));
+        return {
+          category,
+          count: rows.length,
+          gross: sum(rows.map((item) => item.proventos)),
+          discounts: sum(rows.map((item) => item.descontos)),
+        };
+      }),
+    ];
 
     response.json({
       records: censusRecords.map((record) => {
@@ -306,6 +350,13 @@ export const dashboardData: RequestHandler = async (request, response, next) => 
         total_descontos_beneficios: totalBenefitsDiscounts,
         total_liquido_beneficios: totalBenefitsNet,
       },
+      payroll_history: payrollHistory.map((item) => ({
+        competence: item.competencia.toISOString().slice(0, 10),
+        gross: item._sum.proventos?.toNumber() ?? 0,
+        discounts: item._sum.descontos?.toNumber() ?? 0,
+        payroll_records: item._count._all,
+      })),
+      payroll_by_category: payrollByCategory,
       censo: {
         registros: censusTotal,
         concluidos: completed,
@@ -342,9 +393,11 @@ export const dashboardData: RequestHandler = async (request, response, next) => 
         regime: filters.regime ?? null,
         source: filters.source ?? null,
         category: filters.category ?? 'ALL',
+        cargo: filters.cargo ?? null,
         competence: competence?.toISOString().slice(0, 10) ?? null,
       },
       filterOptions: {
+        cargos: allActiveJobs.map((item) => item.cargo),
         regimes: [...new Set([...activeRegimes, ...retiredRegimes, ...pensionerRegimes].flatMap((item) => item.regime ?? []))].sort(),
         sources: [...new Set([...activeSources, ...retiredSources, ...pensionerSources].flatMap((item) => item.fonteDados ?? []))].sort(),
       },
@@ -357,7 +410,7 @@ export const dashboardData: RequestHandler = async (request, response, next) => 
 export const reportCensusRecords: RequestHandler = async (request, response, next) => {
   try {
     const query = reportRecordsQuerySchema.parse(request.query);
-    const where = censusWhere(query.from, query.to, query.category, query.regime, query.source);
+    const where = censusWhere(query.from, query.to, query.category, query.regime, query.source, query.cargo);
     const [total, rows] = await Promise.all([
       prisma.censoRegistro.count({ where }),
       prisma.censoRegistro.findMany({

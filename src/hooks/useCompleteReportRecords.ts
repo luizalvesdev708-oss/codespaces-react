@@ -27,11 +27,13 @@ function reportRecordsUrl(data: DashboardData, page: number) {
   if (filters.category && filters.category !== 'ALL') params.set('category', filters.category);
   if (filters.regime) params.set('regime', filters.regime);
   if (filters.source) params.set('source', filters.source);
+  if (filters.cargo) params.set('cargo', filters.cargo);
   return `/reports/census-records?${params.toString()}`;
 }
 
-export function useCompleteReportRecords(data: DashboardData) {
+export function useCompleteReportRecords(data: DashboardData, userId: string) {
   const [retryToken, setRetryToken] = useState(0);
+  const isOffline = !window.navigator.onLine;
   const [state, setState] = useState<ReportRecordsState>({
     records: data.records,
     loading: false,
@@ -45,22 +47,13 @@ export function useCompleteReportRecords(data: DashboardData) {
       setState({ records: initialRecords, loading: false, error: '' });
       return;
     }
-    if (!window.navigator.onLine) {
-      setState({
-        records: initialRecords,
-        loading: false,
-        error: 'A prévia offline está limitada aos registros já carregados. Conecte-se para gerar a exportação completa.',
-      });
-      return;
-    }
-
     const controller = new AbortController();
     const fetchCompleteRecords = async () => {
       setState({ records: initialRecords, loading: true, error: '' });
       try {
         const firstPage = await apiRequest<ReportRecordsPage>(reportRecordsUrl(data, 1), {
           signal: controller.signal,
-        });
+        }, userId);
         if (!firstPage || !Array.isArray(firstPage.records)
           || !Number.isSafeInteger(firstPage.total) || firstPage.total < 0) {
           throw new Error('Resposta inválida ao carregar os registros do relatório.');
@@ -75,6 +68,7 @@ export function useCompleteReportRecords(data: DashboardData) {
           const nextPages = await Promise.all(pageNumbers.map((page) => apiRequest<ReportRecordsPage>(
             reportRecordsUrl(data, page),
             { signal: controller.signal },
+            userId,
           )));
           const validPages = nextPages.filter(
             (page): page is ReportRecordsPage => Boolean(page && Array.isArray(page.records)),
@@ -94,14 +88,16 @@ export function useCompleteReportRecords(data: DashboardData) {
         setState({
           records: initialRecords,
           loading: false,
-          error: error instanceof Error ? error.message : 'Não foi possível carregar todos os registros do relatório.',
+          error: isOffline
+            ? 'A prévia offline está limitada aos registros salvos neste dispositivo.'
+            : error instanceof Error ? error.message : 'Não foi possível carregar todos os registros do relatório.',
         });
       }
     };
 
     void fetchCompleteRecords();
     return () => controller.abort();
-  }, [data, retryToken]);
+  }, [data, isOffline, retryToken, userId]);
 
   return {
     ...state,

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import type { AuthUser } from '../@types/auth';
 import { ApiError, apiRequest } from '../services/api';
-import { clearOfflineSnapshot, lockOfflineVault, readLastAuthenticatedUser, saveAuthenticatedUser } from '../services/offlineStore';
+import { clearOfflineSnapshot, deleteOfflineVault, readLastAuthenticatedUser, saveAuthenticatedUser } from '../services/offlineStore';
 
 interface Credentials {
   email: string;
@@ -67,7 +67,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsOfflineSession(false);
           try {
             const cachedUser = await readLastAuthenticatedUser();
-            if (cachedUser) await clearOfflineSnapshot(cachedUser.sub);
+            if (cachedUser) {
+              navigator.serviceWorker?.controller?.postMessage({
+                type: 'CLEAR_USER_API_CACHE',
+                userId: cachedUser.sub,
+              });
+              await clearOfflineSnapshot(cachedUser.sub);
+            }
           } catch (storageError) {
             console.error('Não foi possível limpar a sessão local expirada.', storageError);
           }
@@ -126,9 +132,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await apiRequest<void>('/auth/logout', { method: 'POST' });
     if (user) {
-      lockOfflineVault(user.sub);
+      navigator.serviceWorker?.controller?.postMessage({
+        type: 'CLEAR_USER_API_CACHE',
+        userId: user.sub,
+      });
       try {
-        await clearOfflineSnapshot(user.sub);
+        await Promise.all([
+          clearOfflineSnapshot(user.sub),
+          deleteOfflineVault(user.sub),
+        ]);
       } catch (error) {
         console.error('Não foi possível remover os dados locais após sair.', error);
       }

@@ -41,7 +41,7 @@ test('exibe o painel e navega entre as páginas', async () => {
   render(<App />);
   expect(await screen.findByRole('heading', { name: 'Censo Previdenciário' })).toBeDefined();
   expect(await screen.findByRole('heading', { name: 'Resumo da folha por grupo' })).toBeDefined();
-  expect(screen.getByRole('heading', { name: 'Beneficiários por tipo' })).toBeDefined();
+  expect(screen.getByRole('heading', { name: 'Distribuição da folha por tipo previdenciário' })).toBeDefined();
   expect(screen.getByText('Proventos e vencimentos')).toBeDefined();
   fireEvent.click(within(screen.getByRole('navigation', { name: 'Navegação do painel' })).getByRole('button', { name: 'Relatórios' }));
   expect(screen.getByRole('heading', { name: 'Gerador de relatórios' })).toBeDefined();
@@ -72,6 +72,9 @@ test('restaura sessão autenticada e carrega os dados analíticos da API', async
   expect(screen.getByText('Dados do sistema')).toBeDefined();
   expect(fetchMock).toHaveBeenCalledWith('/api/auth/session', expect.objectContaining({ credentials: 'include' }));
   expect(fetchMock).toHaveBeenCalledWith('/api/dashboard/data', expect.objectContaining({ credentials: 'include' }));
+  expect(fetchMock).toHaveBeenCalledWith('/api/dashboard/data', expect.objectContaining({
+    headers: expect.objectContaining({ 'X-PWA-Cache-User': authenticatedUser.sub }),
+  }));
   expect(screen.getByRole('button', { name: 'Sair da sessão' })).toBeDefined();
   expect(DATA.records.length).toBeGreaterThan(0);
 });
@@ -121,7 +124,7 @@ test('shows the protected offline registration workflow to an authorized operato
   expect(await screen.findByRole('heading', { name: 'Cadastro offline protegido' })).toBeDefined();
   expect(screen.getByLabelText('Crie uma frase secreta (12+ caracteres)')).toBeDefined();
   expect(screen.getByRole('button', { name: 'Criar e desbloquear cofre' })).toBeDefined();
-  expect(screen.getByText(/Cópias sincronizadas permanecem até exclusão manual/u)).toBeDefined();
+  expect(screen.getByText(/Sair apaga os rascunhos deste dispositivo/u)).toBeDefined();
 });
 
 test('redireciona sessão anônima para login e mostra erros de credenciais', async () => {

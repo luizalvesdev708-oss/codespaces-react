@@ -10,12 +10,13 @@ import { formatReportPeriod, REPORT_METRICS, REPORT_VIEWS } from '../services/re
 
 interface ReportBuilderProps {
   data: DashboardData;
+  userId?: string;
   isAdmin?: boolean;
   dashboardFilters?: DashboardData['filters'];
 }
 
-export default function ReportBuilder({ data, isAdmin = false, dashboardFilters }: ReportBuilderProps) {
-  const completeRecords = useCompleteReportRecords(data);
+export default function ReportBuilder({ data, userId = '', isAdmin = false, dashboardFilters }: ReportBuilderProps) {
+  const completeRecords = useCompleteReportRecords(data, userId);
   const reportData = { ...data, records: completeRecords.records };
   const report = useReportBuilder(reportData);
   const recordsPending = Boolean(
